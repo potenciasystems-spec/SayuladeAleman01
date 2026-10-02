@@ -1,5 +1,6 @@
 import { DocumentItem } from '../types';
 import { INITIAL_DOCUMENTS } from '../data/initialDocuments';
+import { saveDocumentToCloud, deleteDocumentFromCloud } from './firestoreService';
 
 const STORAGE_KEY = 'sayula_gob_documents_v1';
 const ADMIN_AUTH_KEY = 'sayula_gob_admin_session';
@@ -129,6 +130,9 @@ export async function syncDocumentToServer(doc: DocumentItem): Promise<boolean> 
   }
   saveDocuments(updated);
 
+  // Sync to Firestore Cloud Database in real-time
+  saveDocumentToCloud(sanitized).catch(() => {});
+
   try {
     const res = await fetch('/api/documents', {
       method: 'POST',
@@ -144,6 +148,9 @@ export async function syncDocumentToServer(doc: DocumentItem): Promise<boolean> 
 export async function syncBulkDocumentsToServer(docs: DocumentItem[]): Promise<boolean> {
   const sanitized = docs.map(sanitizeDocument);
   saveDocuments(sanitized);
+  sanitized.forEach(d => {
+    saveDocumentToCloud(d).catch(() => {});
+  });
   try {
     const res = await fetch('/api/documents/bulk', {
       method: 'POST',
@@ -160,6 +167,9 @@ export async function deleteDocumentFromServer(id: string): Promise<boolean> {
   const current = loadDocuments();
   const updated = current.filter(d => d.id !== id);
   saveDocuments(updated);
+
+  // Delete from Firestore Cloud Database in real-time
+  deleteDocumentFromCloud(id).catch(() => {});
 
   try {
     const res = await fetch(`/api/documents/${id}`, {

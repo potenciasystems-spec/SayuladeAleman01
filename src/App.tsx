@@ -7,6 +7,7 @@ import { SectionViews } from './components/SectionViews';
 import { AdminPanelModal } from './components/AdminPanelModal';
 import { AdminLoginModal } from './components/AdminLoginModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { subscribeToDocuments } from './utils/firestoreService';
 
 export default function App() {
   const [activeSection, setActiveSection] = useState<SectionId>('inicio');
@@ -34,10 +35,17 @@ export default function App() {
     const loaded = loadDocuments();
     setDocuments(loaded);
 
-    // Fetch up-to-date documents from server for all online visitors
+    // 1. Fetch up-to-date documents from static JSON/server for offline fallback
     fetchServerDocuments().then((serverDocs) => {
       if (serverDocs && serverDocs.length > 0) {
         setDocuments(serverDocs);
+      }
+    });
+
+    // 2. Real-time subscription to Firestore Cloud Database
+    const unsubscribeFirestore = subscribeToDocuments((cloudDocs) => {
+      if (cloudDocs && cloudDocs.length > 0) {
+        setDocuments(cloudDocs);
       }
     });
 
@@ -95,6 +103,7 @@ export default function App() {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('hashchange', syncFromHash);
+      unsubscribeFirestore();
     };
   }, []);
 

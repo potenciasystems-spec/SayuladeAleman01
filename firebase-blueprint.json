@@ -1,0 +1,82 @@
+{
+  "entities": {
+    "DocumentItem": {
+      "title": "DocumentItem",
+      "description": "Official municipal document or transparency record for Sayula de Alemán",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier of the document"
+        },
+        "sectionId": {
+          "type": "string",
+          "description": "Section identifier"
+        },
+        "category": {
+          "type": "string",
+          "description": "Document category"
+        },
+        "subCategory": {
+          "type": "string",
+          "description": "Optional subcategory"
+        },
+        "title": {
+          "type": "string",
+          "description": "Official document title"
+        },
+        "fileName": {
+          "type": "string",
+          "description": "File name"
+        },
+        "fileType": {
+          "type": "string",
+          "description": "File type extension"
+        },
+        "fileSize": {
+          "type": "string",
+          "description": "Formatted file size"
+        },
+        "year": {
+          "type": "string",
+          "description": "Fiscal year"
+        },
+        "uploadDate": {
+          "type": "string",
+          "description": "Publication date YYYY-MM-DD"
+        },
+        "uploadedBy": {
+          "type": "string",
+          "description": "Uploader name or title"
+        },
+        "department": {
+          "type": "string",
+          "description": "Municipal department"
+        },
+        "status": {
+          "type": "string",
+          "description": "Document status"
+        },
+        "fileUrl": {
+          "type": "string",
+          "description": "Cloud URL or download link"
+        },
+        "description": {
+          "type": "string",
+          "description": "Document description"
+        },
+        "isCustom": {
+          "type": "boolean",
+          "description": "Whether document is user created"
+        }
+      },
+      "required": ["id", "sectionId", "category", "title", "fileName", "fileType", "fileSize", "year", "uploadDate", "uploadedBy", "department", "status"]
+    }
+  },
+  "firestore": {
+    "/documents/{documentId}": {
+      "schema": "DocumentItem",
+      "description": "Public repository of official municipal documents and transparency reports for Sayula de Alemán"
+    }
+  }
+}
