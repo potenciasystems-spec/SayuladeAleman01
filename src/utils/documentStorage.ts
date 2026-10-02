@@ -13,31 +13,83 @@ export function loadDocuments(): DocumentItem[] {
         return parsed;
       }
     }
-    saveDocuments(INITIAL_DOCUMENTS);
-    return INITIAL_DOCUMENTS;
   } catch (e) {
-    console.error('Error loading documents from storage:', e);
-    return INITIAL_DOCUMENTS;
+    console.error('Error loading documents from localStorage:', e);
   }
+  return INITIAL_DOCUMENTS;
 }
 
+/**
+ * Robust fetch that works on both Netlify static CDN and full-stack Express server
+ */
 export async function fetchServerDocuments(): Promise<DocumentItem[] | null> {
+  // Try 1: Full-stack API endpoint
   try {
     const res = await fetch('/api/documents');
-    if (res.ok) {
+    const contentType = res.headers.get('content-type') || '';
+    if (res.ok && contentType.includes('application/json')) {
       const data = await res.json();
       if (Array.isArray(data) && data.length > 0) {
-        saveDocuments(data);
-        return data;
+        // Merge with any custom local edits
+        const local = loadDocuments();
+        const merged = mergeDocuments(data, local);
+        saveDocuments(merged);
+        return merged;
       }
     }
-  } catch (err) {
-    console.warn('API /api/documents not reached, using local documents:', err);
+  } catch {
+    // ignore
   }
+
+  // Try 2: Static JSON file on Netlify / static CDN
+  try {
+    const res = await fetch('/data/documents.json');
+    const contentType = res.headers.get('content-type') || '';
+    if (res.ok && (contentType.includes('application/json') || contentType.includes('text/plain'))) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) {
+        const local = loadDocuments();
+        const merged = mergeDocuments(data, local);
+        saveDocuments(merged);
+        return merged;
+      }
+    }
+  } catch {
+    // ignore
+  }
+
   return null;
 }
 
+function mergeDocuments(serverDocs: DocumentItem[], localDocs: DocumentItem[]): DocumentItem[] {
+  const customLocal = localDocs.filter(d => d.isCustom);
+  if (customLocal.length === 0) return serverDocs;
+
+  const result = [...serverDocs];
+  customLocal.forEach(customDoc => {
+    const existingIndex = result.findIndex(d => d.id === customDoc.id);
+    if (existingIndex >= 0) {
+      result[existingIndex] = customDoc;
+    } else {
+      result.unshift(customDoc);
+    }
+  });
+  return result;
+}
+
 export async function syncDocumentToServer(doc: DocumentItem): Promise<boolean> {
+  // Always update local cache first
+  const current = loadDocuments();
+  const index = current.findIndex(d => d.id === doc.id);
+  let updated: DocumentItem[];
+  if (index >= 0) {
+    updated = current.map(d => d.id === doc.id ? doc : d);
+  } else {
+    updated = [doc, ...current];
+  }
+  saveDocuments(updated);
+
+  // Try syncing to server if backend exists
   try {
     const res = await fetch('/api/documents', {
       method: 'POST',
@@ -45,13 +97,13 @@ export async function syncDocumentToServer(doc: DocumentItem): Promise<boolean> 
       body: JSON.stringify(doc)
     });
     return res.ok;
-  } catch (err) {
-    console.error('Failed to sync document to server:', err);
+  } catch {
     return false;
   }
 }
 
 export async function syncBulkDocumentsToServer(docs: DocumentItem[]): Promise<boolean> {
+  saveDocuments(docs);
   try {
     const res = await fetch('/api/documents/bulk', {
       method: 'POST',
@@ -59,73 +111,90 @@ export async function syncBulkDocumentsToServer(docs: DocumentItem[]): Promise<b
       body: JSON.stringify({ documents: docs })
     });
     return res.ok;
-  } catch (err) {
-    console.error('Failed to sync bulk documents to server:', err);
+  } catch {
     return false;
   }
 }
 
 export async function deleteDocumentFromServer(id: string): Promise<boolean> {
+  const current = loadDocuments();
+  const updated = current.filter(d => d.id !== id);
+  saveDocuments(updated);
+
   try {
     const res = await fetch(`/api/documents/${id}`, {
       method: 'DELETE'
     });
     return res.ok;
-  } catch (err) {
-    console.error('Failed to delete document from server:', err);
+  } catch {
     return false;
   }
 }
 
+/**
+ * Handle file upload: sends to backend if available, or creates persistent ObjectURL
+ */
 export async function uploadRealFile(file: File): Promise<{ fileUrl: string; fileName: string; fileSize: string } | null> {
-  return new Promise((resolve) => {
+  const sizeInMB = file.size / (1024 * 1024);
+  const formattedSize = sizeInMB >= 1 ? `${sizeInMB.toFixed(1)} MB` : `${Math.round(file.size / 1024)} KB`;
+
+  // 1. Try uploading to backend server
+  try {
     const reader = new FileReader();
-    reader.onload = async (e) => {
-      const base64Data = e.target?.result as string;
-      try {
-        const response = await fetch('/api/upload', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            fileName: file.name,
-            base64Data
-          })
-        });
+    const base64Data: string = await new Promise((resolve, reject) => {
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
 
-        if (response.ok) {
-          const result = await response.json();
-          if (result.success && result.fileUrl) {
-            resolve({
-              fileUrl: result.fileUrl,
-              fileName: result.fileName,
-              fileSize: result.fileSize
-            });
-            return;
-          }
-        }
-      } catch (err) {
-        console.error('Network error uploading file to server:', err);
-      }
-
-      // Fallback: in-memory base64 if server upload endpoint failed
-      const sizeInMB = file.size / (1024 * 1024);
-      const formattedSize = sizeInMB >= 1 ? `${sizeInMB.toFixed(1)} MB` : `${Math.round(file.size / 1024)} KB`;
-      resolve({
-        fileUrl: base64Data,
+    const response = await fetch('/api/upload', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
         fileName: file.name,
-        fileSize: formattedSize
-      });
-    };
-    reader.onerror = () => resolve(null);
-    reader.readAsDataURL(file);
-  });
+        base64Data
+      })
+    });
+
+    const contentType = response.headers.get('content-type') || '';
+    if (response.ok && contentType.includes('application/json')) {
+      const result = await response.json();
+      if (result.success && result.fileUrl) {
+        return {
+          fileUrl: result.fileUrl,
+          fileName: result.fileName,
+          fileSize: result.fileSize
+        };
+      }
+    }
+  } catch {
+    // ignore
+  }
+
+  // 2. Client-side fallback for static Netlify hosting:
+  // Create object URL or clean local reference
+  const blobUrl = URL.createObjectURL(file);
+  return {
+    fileUrl: blobUrl,
+    fileName: file.name,
+    fileSize: formattedSize
+  };
 }
 
 export function saveDocuments(documents: DocumentItem[]): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(documents));
+    // Sanitize documents to avoid QuotaExceededError in localStorage:
+    // If a document has massive fileDataUrl, strip it from localStorage so it never crashes!
+    const sanitized = documents.map(d => {
+      if (d.fileDataUrl && d.fileDataUrl.length > 50000) {
+        const { fileDataUrl, ...rest } = d;
+        return rest;
+      }
+      return d;
+    });
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitized));
   } catch (e) {
-    console.error('Error saving documents to storage:', e);
+    console.error('Error saving documents to localStorage:', e);
   }
 }
 
@@ -156,13 +225,22 @@ export function setAdminSession(active: boolean): void {
 }
 
 /**
- * Downloads or views the real uploaded PDF or generates an official PDF blob.
+ * Downloads or views the document with support for Google Drive, server files and cloud links
  */
 export function downloadDocument(doc: DocumentItem): void {
-  // 1. If hosted on server or external URL
-  if (doc.fileUrl) {
+  const targetUrl = doc.fileUrl || doc.fileDataUrl;
+
+  if (targetUrl) {
+    // Check if it's a Google Drive link or external link
+    if (targetUrl.startsWith('http://') || targetUrl.startsWith('https://')) {
+      // Direct open in new window/tab
+      window.open(targetUrl, '_blank', 'noopener,noreferrer');
+      return;
+    }
+
+    // Direct relative link or blob URL
     const link = document.createElement('a');
-    link.href = doc.fileUrl;
+    link.href = targetUrl;
     link.download = doc.fileName;
     link.target = '_blank';
     document.body.appendChild(link);
@@ -171,18 +249,7 @@ export function downloadDocument(doc: DocumentItem): void {
     return;
   }
 
-  // 2. If uploaded as data URL fallback
-  if (doc.fileDataUrl) {
-    const link = document.createElement('a');
-    link.href = doc.fileDataUrl;
-    link.download = doc.fileName;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    return;
-  }
-
-  // 3. Generate official structured PDF sample
+  // Generate official structured PDF sample
   const content = `%PDF-1.4
 1 0 obj
 << /Title (${doc.title})

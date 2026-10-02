@@ -43,14 +43,40 @@ export default function App() {
     const sessionActive = getAdminSession();
     setIsAdminAuthenticated(sessionActive);
 
-    // Check if URL has #admin or ?admin
-    if (window.location.hash === '#admin' || window.location.search.includes('admin')) {
-      if (sessionActive) {
-        setIsAdminPanelOpen(true);
+    const syncFromHash = () => {
+      const hash = window.location.hash.replace('#', '').trim();
+      if (hash === 'admin' || window.location.search.includes('admin')) {
+        if (getAdminSession()) {
+          setIsAdminPanelOpen(true);
+        } else {
+          setIsAdminLoginOpen(true);
+        }
+      } else if (hash && hash !== '') {
+        const validSections: SectionId[] = [
+          'inicio',
+          'obras-publicas',
+          'transparencia',
+          'ayuntamiento',
+          'organigrama-view',
+          'contraloria',
+          'planes-desarrollo',
+          'cuentas-publicas',
+          'ingresos-egresos',
+          'informacion-financiera',
+          'disciplina-financiera',
+          'terminos',
+          'privacidad'
+        ];
+        if (validSections.includes(hash as SectionId)) {
+          setActiveSection(hash as SectionId);
+        }
       } else {
-        setIsAdminLoginOpen(true);
+        setActiveSection('inicio');
       }
-    }
+    };
+
+    syncFromHash();
+    window.addEventListener('hashchange', syncFromHash);
 
     // Keyboard shortcut: Ctrl + Shift + A
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -65,7 +91,10 @@ export default function App() {
     };
 
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('hashchange', syncFromHash);
+    };
   }, []);
 
   const handleDocumentsChange = (newDocs: DocumentItem[]) => {
@@ -82,6 +111,11 @@ export default function App() {
 
   const navigateTo = (secId: SectionId) => {
     setActiveSection(secId);
+    if (secId === 'inicio') {
+      window.history.pushState(null, '', window.location.pathname);
+    } else {
+      window.location.hash = `#${secId}`;
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 

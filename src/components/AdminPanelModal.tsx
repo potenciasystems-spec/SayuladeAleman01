@@ -263,16 +263,40 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
     onShowToast('Se han restaurado los archivos y la estructura oficial original.');
   };
 
+  const jsonFileInputRef = useRef<HTMLInputElement>(null);
+
   const handleExportJson = () => {
     const jsonString = JSON.stringify(documents, null, 2);
     const blob = new Blob([jsonString], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `sayula_documentacion_oficial_${new Date().toISOString().slice(0, 10)}.json`;
+    link.download = `documents.json`;
     link.click();
     URL.revokeObjectURL(url);
-    onShowToast('Copia de seguridad descargada.');
+    onShowToast('Se descargó "documents.json". Colócalo en public/data/documents.json para Netlify.');
+  };
+
+  const handleImportJson = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const parsed = JSON.parse(ev.target?.result as string);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          onDocumentsChange(parsed);
+          onShowToast(`Se importaron ${parsed.length} documentos exitosamente.`);
+        } else {
+          alert('El archivo JSON no contiene una lista válida de documentos.');
+        }
+      } catch {
+        alert('Error al leer el archivo JSON.');
+      }
+    };
+    reader.readAsText(file);
+    if (jsonFileInputRef.current) jsonFileInputRef.current.value = '';
   };
 
   // Filtered documents
@@ -387,12 +411,26 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
           </div>
 
           <div className="flex items-center justify-end gap-2">
+            <input
+              type="file"
+              ref={jsonFileInputRef}
+              onChange={handleImportJson}
+              accept=".json"
+              className="hidden"
+            />
             <button
-              onClick={handleExportJson}
-              title="Descargar copia de seguridad en JSON"
+              onClick={() => jsonFileInputRef.current?.click()}
+              title="Importar un archivo documents.json"
               className="text-[9px] bg-white border border-brandBorder hover:border-[#D4AF37] px-2.5 py-1.5 rounded-lg text-gray-700 font-semibold shadow-sm transition-all flex items-center gap-1 cursor-pointer"
             >
-              <i className="fa-solid fa-file-export text-[#D4AF37]"></i> Respaldo
+              <i className="fa-solid fa-file-import text-[#D4AF37]"></i> Importar
+            </button>
+            <button
+              onClick={handleExportJson}
+              title="Descargar archivo documents.json para colocar en public/data/"
+              className="text-[9px] bg-white border border-brandBorder hover:border-[#D4AF37] px-2.5 py-1.5 rounded-lg text-gray-700 font-semibold shadow-sm transition-all flex items-center gap-1 cursor-pointer"
+            >
+              <i className="fa-solid fa-file-export text-[#D4AF37]"></i> Exportar JSON
             </button>
             <button
               onClick={() => setShowResetConfirm(true)}
