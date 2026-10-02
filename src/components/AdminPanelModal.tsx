@@ -53,6 +53,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
 
   // Quick file replace input
   const fileReplaceInputRef = useRef<HTMLInputElement>(null);
+  const jsonFileInputRef = useRef<HTMLInputElement>(null);
   const [targetReplaceDocId, setTargetReplaceDocId] = useState<string | null>(null);
 
   // Reset confirmation
@@ -262,8 +263,6 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
     setShowResetConfirm(false);
     onShowToast('Se han restaurado los archivos y la estructura oficial original.');
   };
-
-  const jsonFileInputRef = useRef<HTMLInputElement>(null);
 
   const handleExportJson = () => {
     const jsonString = JSON.stringify(documents, null, 2);
