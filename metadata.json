@@ -1,0 +1,6 @@
+{
+  "name": "Gobierno de Sayula de Alemán - Transparencia y Rendición de Cuentas",
+  "description": "Plataforma oficial del H. Ayuntamiento de Sayula de Alemán, Veracruz para la consulta de información pública, rendición de cuentas y gestión documental técnica.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
