@@ -299,23 +299,29 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
     if (jsonFileInputRef.current) jsonFileInputRef.current.value = '';
   };
 
-  // Filtered documents
-  const filteredDocs = documents.filter(doc => {
+  // Filtered documents with full null/type safety
+  const safeDocs = Array.isArray(documents) ? documents : [];
+  const filteredDocs = safeDocs.filter(doc => {
+    if (!doc) return false;
     if (selectedSection !== 'all' && doc.sectionId !== selectedSection) return false;
-    if (filterYear !== 'all' && !doc.year.includes(filterYear)) return false;
+    
+    const docYear = String(doc.year || '');
+    if (filterYear !== 'all' && !docYear.includes(filterYear)) return false;
+    
     if (filterStatus !== 'all' && doc.status !== filterStatus) return false;
+    
     if (searchTerm.trim()) {
       const q = searchTerm.toLowerCase();
-      const matchTitle = doc.title.toLowerCase().includes(q);
-      const matchFile = doc.fileName.toLowerCase().includes(q);
-      const matchCat = doc.category.toLowerCase().includes(q);
-      const matchDep = doc.department.toLowerCase().includes(q);
+      const matchTitle = String(doc.title || '').toLowerCase().includes(q);
+      const matchFile = String(doc.fileName || '').toLowerCase().includes(q);
+      const matchCat = String(doc.category || '').toLowerCase().includes(q);
+      const matchDep = String(doc.department || '').toLowerCase().includes(q);
       if (!matchTitle && !matchFile && !matchCat && !matchDep) return false;
     }
     return true;
   });
 
-  const customDocsCount = documents.filter(d => d.fileUrl || d.isCustom).length;
+  const customDocsCount = safeDocs.filter(d => Boolean(d && (d.fileUrl || d.isCustom))).length;
 
   return (
     <div className="fixed inset-0 z-[150] flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-md animate-fade-in-scale">
@@ -386,7 +392,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
             </span>
             <div>
               <p className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold">Total Documentos</p>
-              <p className="font-institutional font-bold text-sm text-brandDark">{documents.length} Archivos</p>
+              <p className="font-institutional font-bold text-sm text-brandDark">{safeDocs.length} Archivos</p>
             </div>
           </div>
 
@@ -455,7 +461,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
             Todas las Secciones
           </button>
           {OFFICIAL_SECTIONS.map((sec) => {
-            const count = documents.filter(d => d.sectionId === sec.id).length;
+            const count = safeDocs.filter(d => d && d.sectionId === sec.id).length;
             const isSelected = selectedSection === sec.id;
             return (
               <button

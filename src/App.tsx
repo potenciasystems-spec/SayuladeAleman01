@@ -6,6 +6,7 @@ import { SaraAssistantModal } from './components/SaraAssistantModal';
 import { SectionViews } from './components/SectionViews';
 import { AdminPanelModal } from './components/AdminPanelModal';
 import { AdminLoginModal } from './components/AdminLoginModal';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 export default function App() {
   const [activeSection, setActiveSection] = useState<SectionId>('inicio');
@@ -437,14 +438,16 @@ export default function App() {
       />
 
       {/* ADMIN CONTROL PANEL MODAL FOR DOCUMENTS */}
-      <AdminPanelModal
-        isOpen={isAdminPanelOpen}
-        onClose={() => setIsAdminPanelOpen(false)}
-        documents={documents}
-        onDocumentsChange={handleDocumentsChange}
-        initialSectionFilter={adminInitialSection}
-        onShowToast={showToast}
-      />
+      <ErrorBoundary fallbackTitle="Panel de Control de Archivos y Documentación">
+        <AdminPanelModal
+          isOpen={isAdminPanelOpen}
+          onClose={() => setIsAdminPanelOpen(false)}
+          documents={documents}
+          onDocumentsChange={handleDocumentsChange}
+          initialSectionFilter={adminInitialSection}
+          onShowToast={showToast}
+        />
+      </ErrorBoundary>
 
       {/* CUSTOM FEEDBACK TOAST */}
       {toastMessage && (

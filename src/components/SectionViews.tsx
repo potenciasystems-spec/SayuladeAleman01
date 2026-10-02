@@ -18,9 +18,16 @@ export const SectionViews: React.FC<SectionViewsProps> = ({
   onShowToast
 }) => {
   const getDocsFor = (sectionId: SectionId, filterFn?: (doc: DocumentItem) => boolean) => {
-    let list = documents.filter(d => d.sectionId === sectionId);
+    const safeList = Array.isArray(documents) ? documents : [];
+    let list = safeList.filter(d => Boolean(d && d.sectionId === sectionId));
     if (filterFn) {
-      list = list.filter(filterFn);
+      list = list.filter(doc => {
+        try {
+          return filterFn(doc);
+        } catch {
+          return false;
+        }
+      });
     }
     return list;
   };

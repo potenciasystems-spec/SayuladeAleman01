@@ -4,19 +4,58 @@ import { INITIAL_DOCUMENTS } from '../data/initialDocuments';
 const STORAGE_KEY = 'sayula_gob_documents_v1';
 const ADMIN_AUTH_KEY = 'sayula_gob_admin_session';
 
+export function sanitizeDocument(d: any): DocumentItem {
+  if (!d || typeof d !== 'object') {
+    return {
+      id: `doc-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      sectionId: 'obras-publicas',
+      category: 'General',
+      title: 'Documento Oficial',
+      fileName: 'documento.pdf',
+      fileType: 'pdf',
+      fileSize: '1.0 MB',
+      year: '2026',
+      uploadDate: new Date().toISOString().split('T')[0],
+      uploadedBy: 'Administración Municipal',
+      department: 'Ayuntamiento',
+      status: 'Publicado'
+    };
+  }
+
+  return {
+    id: String(d.id || `doc-${Date.now()}`),
+    sectionId: d.sectionId || 'obras-publicas',
+    category: String(d.category || 'General'),
+    subCategory: d.subCategory ? String(d.subCategory) : undefined,
+    title: String(d.title || 'Documento Oficial'),
+    fileName: String(d.fileName || 'documento.pdf'),
+    fileType: d.fileType || 'pdf',
+    fileSize: String(d.fileSize || '1.0 MB'),
+    year: String(d.year || '2026'),
+    uploadDate: String(d.uploadDate || new Date().toISOString().split('T')[0]),
+    uploadedBy: String(d.uploadedBy || 'Administración Municipal'),
+    department: String(d.department || 'Ayuntamiento'),
+    status: d.status || 'Publicado',
+    fileUrl: d.fileUrl ? String(d.fileUrl) : undefined,
+    fileDataUrl: d.fileDataUrl ? String(d.fileDataUrl) : undefined,
+    description: d.description ? String(d.description) : undefined,
+    isCustom: Boolean(d.isCustom)
+  };
+}
+
 export function loadDocuments(): DocumentItem[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed;
+        return parsed.map(sanitizeDocument);
       }
     }
   } catch (e) {
     console.error('Error loading documents from localStorage:', e);
   }
-  return INITIAL_DOCUMENTS;
+  return INITIAL_DOCUMENTS.map(sanitizeDocument);
 }
 
 /**
@@ -30,9 +69,9 @@ export async function fetchServerDocuments(): Promise<DocumentItem[] | null> {
     if (res.ok && contentType.includes('application/json')) {
       const data = await res.json();
       if (Array.isArray(data) && data.length > 0) {
-        // Merge with any custom local edits
+        const sanitized = data.map(sanitizeDocument);
         const local = loadDocuments();
-        const merged = mergeDocuments(data, local);
+        const merged = mergeDocuments(sanitized, local);
         saveDocuments(merged);
         return merged;
       }
@@ -48,8 +87,9 @@ export async function fetchServerDocuments(): Promise<DocumentItem[] | null> {
     if (res.ok && (contentType.includes('application/json') || contentType.includes('text/plain'))) {
       const data = await res.json();
       if (Array.isArray(data) && data.length > 0) {
+        const sanitized = data.map(sanitizeDocument);
         const local = loadDocuments();
-        const merged = mergeDocuments(data, local);
+        const merged = mergeDocuments(sanitized, local);
         saveDocuments(merged);
         return merged;
       }
@@ -78,23 +118,22 @@ function mergeDocuments(serverDocs: DocumentItem[], localDocs: DocumentItem[]): 
 }
 
 export async function syncDocumentToServer(doc: DocumentItem): Promise<boolean> {
-  // Always update local cache first
+  const sanitized = sanitizeDocument(doc);
   const current = loadDocuments();
-  const index = current.findIndex(d => d.id === doc.id);
+  const index = current.findIndex(d => d.id === sanitized.id);
   let updated: DocumentItem[];
   if (index >= 0) {
-    updated = current.map(d => d.id === doc.id ? doc : d);
+    updated = current.map(d => d.id === sanitized.id ? sanitized : d);
   } else {
-    updated = [doc, ...current];
+    updated = [sanitized, ...current];
   }
   saveDocuments(updated);
 
-  // Try syncing to server if backend exists
   try {
     const res = await fetch('/api/documents', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(doc)
+      body: JSON.stringify(sanitized)
     });
     return res.ok;
   } catch {
@@ -103,12 +142,13 @@ export async function syncDocumentToServer(doc: DocumentItem): Promise<boolean> 
 }
 
 export async function syncBulkDocumentsToServer(docs: DocumentItem[]): Promise<boolean> {
-  saveDocuments(docs);
+  const sanitized = docs.map(sanitizeDocument);
+  saveDocuments(sanitized);
   try {
     const res = await fetch('/api/documents/bulk', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ documents: docs })
+      body: JSON.stringify({ documents: sanitized })
     });
     return res.ok;
   } catch {
@@ -172,7 +212,6 @@ export async function uploadRealFile(file: File): Promise<{ fileUrl: string; fil
   }
 
   // 2. Client-side fallback for static Netlify hosting:
-  // Create object URL or clean local reference
   const blobUrl = URL.createObjectURL(file);
   return {
     fileUrl: blobUrl,
@@ -183,8 +222,6 @@ export async function uploadRealFile(file: File): Promise<{ fileUrl: string; fil
 
 export function saveDocuments(documents: DocumentItem[]): void {
   try {
-    // Sanitize documents to avoid QuotaExceededError in localStorage:
-    // If a document has massive fileDataUrl, strip it from localStorage so it never crashes!
     const sanitized = documents.map(d => {
       if (d.fileDataUrl && d.fileDataUrl.length > 50000) {
         const { fileDataUrl, ...rest } = d;
@@ -199,9 +236,10 @@ export function saveDocuments(documents: DocumentItem[]): void {
 }
 
 export function resetToInitialDocuments(): DocumentItem[] {
-  saveDocuments(INITIAL_DOCUMENTS);
-  syncBulkDocumentsToServer(INITIAL_DOCUMENTS);
-  return INITIAL_DOCUMENTS;
+  const initial = INITIAL_DOCUMENTS.map(sanitizeDocument);
+  saveDocuments(initial);
+  syncBulkDocumentsToServer(initial);
+  return initial;
 }
 
 export function getAdminSession(): boolean {
@@ -231,14 +269,11 @@ export function downloadDocument(doc: DocumentItem): void {
   const targetUrl = doc.fileUrl || doc.fileDataUrl;
 
   if (targetUrl) {
-    // Check if it's a Google Drive link or external link
     if (targetUrl.startsWith('http://') || targetUrl.startsWith('https://')) {
-      // Direct open in new window/tab
       window.open(targetUrl, '_blank', 'noopener,noreferrer');
       return;
     }
 
-    // Direct relative link or blob URL
     const link = document.createElement('a');
     link.href = targetUrl;
     link.download = doc.fileName;
