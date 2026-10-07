@@ -1,0 +1,33 @@
+backend:
+  name: git-gateway
+  branch: main
+
+media_folder: "public/assets/documentos"
+public_folder: "/assets/documentos"
+
+locale: "es"
+logo_url: "https://i.imgur.com/2YV4S9u.png"
+
+collections:
+  - name: "documentos"
+    label: "Documentos Oficiales"
+    folder: "content/documentos"
+    create: true
+    slug: "{{year}}-{{slug}}"
+    fields:
+      - { label: "Título del Documento", name: "title", widget: "string" }
+      - { label: "Categoría", name: "categoria", widget: "select", options: ["Plan de Desarrollo", "Informe de Gobierno", "Gaceta Municipal", "Transparencia", "Cuenta Pública", "Ingresos y Egresos", "Información Financiera", "Obras Públicas", "Actas de Cabildo", "Contraloría Interna"], default: "Plan de Desarrollo" }
+      - { label: "Sección en el Portal", name: "seccion", widget: "select", options: [
+          { label: "Planes de Desarrollo e Informes", value: "planes-desarrollo" },
+          { label: "Transparencia y Rendición de Cuentas", value: "transparencia" },
+          { label: "Obras Públicas y Licitaciones", value: "obras-publicas" },
+          { label: "Cuentas Públicas", value: "cuentas-publicas" },
+          { label: "Ingresos y Egresos (Presupuesto)", value: "ingresos-egresos" },
+          { label: "Información Financiera", value: "informacion-financiera" },
+          { label: "Contraloría y Auditoría", value: "contraloria" },
+          { label: "H. Ayuntamiento y Cabildo", value: "ayuntamiento" },
+          { label: "Organigrama y Directorio", value: "organigrama-view" }
+        ], default: "planes-desarrollo", required: false }
+      - { label: "Año", name: "anio", widget: "number", value_type: "int", default: 2026 }
+      - { label: "Archivo PDF", name: "pdf", widget: "file" }
+      - { label: "Descripción o Notas", name: "descripcion", widget: "text", required: false }

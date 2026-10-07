@@ -1,6 +1,7 @@
 import { DocumentItem } from '../types';
 import { INITIAL_DOCUMENTS } from '../data/initialDocuments';
 import { saveDocumentToCloud, deleteDocumentFromCloud } from './firestoreService';
+import { loadDecapDocuments } from './decapDocuments';
 
 const STORAGE_KEY = 'sayula_gob_documents_v1';
 const ADMIN_AUTH_KEY = 'sayula_gob_admin_session';
@@ -44,19 +45,34 @@ export function sanitizeDocument(d: any): DocumentItem {
   };
 }
 
+function mergeWithDecap(docs: DocumentItem[], decapDocs: DocumentItem[]): DocumentItem[] {
+  if (!decapDocs || decapDocs.length === 0) return docs;
+  const result = [...docs];
+  decapDocs.forEach(d => {
+    const idx = result.findIndex(existing => existing.id === d.id);
+    if (idx >= 0) {
+      result[idx] = d;
+    } else {
+      result.unshift(d);
+    }
+  });
+  return result;
+}
+
 export function loadDocuments(): DocumentItem[] {
+  const decapDocs = loadDecapDocuments();
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed.map(sanitizeDocument);
+        return mergeWithDecap(parsed.map(sanitizeDocument), decapDocs);
       }
     }
   } catch (e) {
     console.error('Error loading documents from localStorage:', e);
   }
-  return INITIAL_DOCUMENTS.map(sanitizeDocument);
+  return mergeWithDecap(INITIAL_DOCUMENTS.map(sanitizeDocument), decapDocs);
 }
 
 /**

@@ -365,12 +365,24 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
           </div>
 
           <div className="flex items-center gap-3">
+            <a
+              href="/admin/"
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Abrir gestor visual Decap CMS conectado a GitHub y Netlify"
+              className="bg-[#222222] border border-[#D4AF37]/50 text-brandLightGold hover:bg-[#333333] hover:border-[#D4AF37] px-3 py-2 rounded-xl text-[10px] sm:text-[11px] font-institutional font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer"
+            >
+              <i className="fa-solid fa-layer-group text-gold-champagne"></i>
+              <span className="hidden sm:inline">Gestor Decap CMS (/admin)</span>
+              <span className="sm:hidden">CMS</span>
+            </a>
+
             <button
               onClick={() => openNewDocModal()}
               className="bg-gold-champagne text-brandDark hover:opacity-90 px-4 py-2 rounded-xl text-[10px] sm:text-[11px] font-institutional font-bold uppercase tracking-wider transition-all shadow-md flex items-center gap-1.5 hover:scale-105 active:scale-95 cursor-pointer"
             >
               <i className="fa-solid fa-cloud-arrow-up text-xs"></i>
-              <span>Subir Archivo al Servidor</span>
+              <span>Subir Archivo</span>
             </button>
 
             <button
