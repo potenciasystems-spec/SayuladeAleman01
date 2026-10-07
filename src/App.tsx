@@ -1,12 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { SectionId, DocumentItem } from './types';
-import { loadDocuments, saveDocuments, getAdminSession, setAdminSession, fetchServerDocuments } from './utils/documentStorage';
+import { loadDocuments, saveDocuments, fetchServerDocuments } from './utils/documentStorage';
 import { NavigationDrawer } from './components/NavigationDrawer';
 import { SaraAssistantModal } from './components/SaraAssistantModal';
 import { SectionViews } from './components/SectionViews';
-import { AdminPanelModal } from './components/AdminPanelModal';
-import { AdminLoginModal } from './components/AdminLoginModal';
-import { ErrorBoundary } from './components/ErrorBoundary';
 import { subscribeToDocuments } from './utils/firestoreService';
 
 export default function App() {
@@ -15,12 +12,6 @@ export default function App() {
   const [isAssistantOpen, setIsAssistantOpen] = useState(false);
   const [assistantInitialQuery, setAssistantInitialQuery] = useState('');
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(true);
-
-  // Admin states
-  const [isAdminPanelOpen, setIsAdminPanelOpen] = useState(false);
-  const [isAdminLoginOpen, setIsAdminLoginOpen] = useState(false);
-  const [adminInitialSection, setAdminInitialSection] = useState<SectionId | 'all'>('all');
-  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(false);
 
   // Documents state
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
@@ -49,17 +40,11 @@ export default function App() {
       }
     });
 
-    const sessionActive = getAdminSession();
-    setIsAdminAuthenticated(sessionActive);
-
     const syncFromHash = () => {
       const hash = window.location.hash.replace('#', '').trim();
       if (hash === 'admin' || window.location.search.includes('admin')) {
-        if (getAdminSession()) {
-          setIsAdminPanelOpen(true);
-        } else {
-          setIsAdminLoginOpen(true);
-        }
+        window.location.href = '/admin/';
+        return;
       } else if (hash && hash !== '') {
         const validSections: SectionId[] = [
           'inicio',
@@ -87,15 +72,11 @@ export default function App() {
     syncFromHash();
     window.addEventListener('hashchange', syncFromHash);
 
-    // Keyboard shortcut: Ctrl + Shift + A
+    // Keyboard shortcut: Ctrl + Shift + A directly opens Decap CMS
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey && e.shiftKey && (e.key === 'A' || e.key === 'a')) || (e.altKey && (e.key === 'a' || e.key === 'A'))) {
         e.preventDefault();
-        if (getAdminSession()) {
-          setIsAdminPanelOpen(true);
-        } else {
-          setIsAdminLoginOpen(true);
-        }
+        window.location.href = '/admin/';
       }
     };
 
@@ -136,30 +117,6 @@ export default function App() {
       setIsAssistantOpen(true);
       setHeroSearchText('');
     }
-  };
-
-  const handleLoginSuccess = () => {
-    setAdminSession(true);
-    setIsAdminAuthenticated(true);
-    setIsAdminLoginOpen(false);
-    setIsAdminPanelOpen(true);
-    showToast('Sesión de administrador autorizada.');
-  };
-
-  const handleOpenAdmin = (secId?: SectionId) => {
-    setAdminInitialSection(secId || 'all');
-    if (isAdminAuthenticated) {
-      setIsAdminPanelOpen(true);
-    } else {
-      setIsAdminLoginOpen(true);
-    }
-  };
-
-  const handleLogoutAdmin = () => {
-    setAdminSession(false);
-    setIsAdminAuthenticated(false);
-    setIsAdminPanelOpen(false);
-    showToast('Sesión de administración cerrada.');
   };
 
   return (
@@ -206,20 +163,24 @@ export default function App() {
       {/* TOP STATUS BAR: 100% IDENTICAL TO ORIGINAL DESIGN (Clean public view) */}
       <div className="relative z-50 text-[10px] tracking-widest uppercase py-3 border-b border-white/10 bg-gold-champagne">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 flex justify-between items-center text-brandDark font-medium">
-          <div className="flex items-center gap-2">
-            <i className="fa-solid fa-lock text-brandDark text-xs mr-1 animate-pulse"></i>
+          <a
+            href="/admin/"
+            className="flex items-center gap-2 hover:opacity-80 transition-opacity cursor-pointer group"
+            title="Abrir Gestor Decap CMS (/admin)"
+          >
+            <i className="fa-solid fa-lock text-brandDark text-xs mr-1 animate-pulse group-hover:scale-110 transition-transform"></i>
             <span className="font-bold tracking-widest text-[9px] sm:text-[10px]">CONEXIÓN SEGURA SSL</span>
-          </div>
+          </a>
 
           <div className="flex items-center gap-2">
-            {isAdminAuthenticated && (
-              <button
-                onClick={() => setIsAdminPanelOpen(true)}
-                className="bg-brandDark text-brandLightGold px-2.5 py-0.5 rounded text-[8px] font-bold tracking-widest flex items-center gap-1 shadow-sm mr-1 cursor-pointer"
-              >
-                <i className="fa-solid fa-gear text-gold-champagne"></i> Panel Activo
-              </button>
-            )}
+            <a
+              href="/admin/"
+              className="bg-brandDark text-brandLightGold hover:text-white px-2.5 py-1 rounded text-[8px] font-bold tracking-widest flex items-center gap-1 shadow-sm transition-all hover:scale-105 cursor-pointer"
+              title="Abrir Gestor Decap CMS (/admin)"
+            >
+              <i className="fa-solid fa-layer-group text-gold-champagne"></i>
+              <span>GESTOR CMS</span>
+            </a>
             <span className="bg-white text-[#B8860B] px-3 py-1 rounded text-[9px] font-extrabold tracking-widest shadow-sm">
               SITIO OFICIAL
             </span>
@@ -264,7 +225,7 @@ export default function App() {
         isOpen={isNavDrawerOpen}
         onClose={() => setIsNavDrawerOpen(false)}
         onNavigate={navigateTo}
-        onOpenAdmin={handleOpenAdmin}
+        onOpenAdmin={() => { window.location.href = '/admin/'; }}
       />
 
       {/* MAIN APP WRAPPER */}
@@ -356,7 +317,7 @@ export default function App() {
               activeSection={activeSection}
               documents={documents}
               onNavigate={navigateTo}
-              onOpenAdmin={handleOpenAdmin}
+              onOpenAdmin={() => { window.location.href = '/admin/'; }}
               onShowToast={showToast}
             />
           </div>
@@ -438,25 +399,6 @@ export default function App() {
           </div>
         </div>
       )}
-
-      {/* ADMIN LOGIN MODAL */}
-      <AdminLoginModal
-        isOpen={isAdminLoginOpen}
-        onClose={() => setIsAdminLoginOpen(false)}
-        onSuccess={handleLoginSuccess}
-      />
-
-      {/* ADMIN CONTROL PANEL MODAL FOR DOCUMENTS */}
-      <ErrorBoundary fallbackTitle="Panel de Control de Archivos y Documentación">
-        <AdminPanelModal
-          isOpen={isAdminPanelOpen}
-          onClose={() => setIsAdminPanelOpen(false)}
-          documents={documents}
-          onDocumentsChange={handleDocumentsChange}
-          initialSectionFilter={adminInitialSection}
-          onShowToast={showToast}
-        />
-      </ErrorBoundary>
 
       {/* CUSTOM FEEDBACK TOAST */}
       {toastMessage && (
@@ -602,16 +544,14 @@ export default function App() {
                   Página de Inicio
                 </button>
               </li>
-              {isAdminAuthenticated && (
-                <li>
-                  <button
-                    onClick={handleLogoutAdmin}
-                    className="text-red-400 hover:text-red-300 text-[10px] font-bold flex items-center gap-1 cursor-pointer mt-1"
-                  >
-                    <i className="fa-solid fa-right-from-bracket text-[9px]"></i> Cerrar Sesión Admin
-                  </button>
-                </li>
-              )}
+              <li>
+                <a
+                  href="/admin/"
+                  className="text-gray-400 hover:text-gold-champagne text-[11px] font-semibold flex items-center gap-1.5 cursor-pointer mt-1"
+                >
+                  <i className="fa-solid fa-layer-group text-gold-champagne text-[10px]"></i> Gestor Decap CMS (/admin)
+                </a>
+              </li>
             </ul>
           </div>
         </div>
@@ -621,14 +561,14 @@ export default function App() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 flex flex-col md:flex-row items-center justify-between gap-4 w-full">
             <p className="flex items-center justify-center gap-2">
               <span>&copy; 2026 H. Ayuntamiento de Sayula de Alemán, Veracruz. Todos los derechos reservados.</span>
-              {/* Subtle discreet admin access point for government personnel */}
-              <button
-                onClick={() => handleOpenAdmin()}
+              {/* Direct lock icon link to Decap CMS */}
+              <a
+                href="/admin/"
                 className="text-gray-700 hover:text-[#D4AF37] transition-colors p-1 cursor-pointer"
-                title="Acceso Gubernamental (Ctrl+Shift+A o #admin)"
+                title="Acceso al Gestor Decap CMS (/admin)"
               >
-                <i className="fa-solid fa-lock text-[8px]"></i>
-              </button>
+                <i className="fa-solid fa-lock text-[9px]"></i>
+              </a>
             </p>
             <p className="text-gold-champagne uppercase font-bold">
               <i className="fa-solid fa-circle-check text-[#D4AF37] mr-1"></i> Portal Gubernamental en Cumplimiento Normativo

@@ -5,7 +5,7 @@ interface NavigationDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   onNavigate: (sectionId: SectionId) => void;
-  onOpenAdmin: (sectionId?: SectionId) => void;
+  onOpenAdmin?: (sectionId?: SectionId) => void;
 }
 
 export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({

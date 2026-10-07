@@ -6,7 +6,7 @@ interface SectionViewsProps {
   activeSection: SectionId;
   documents: DocumentItem[];
   onNavigate: (sectionId: SectionId) => void;
-  onOpenAdmin: (sectionId?: SectionId) => void;
+  onOpenAdmin?: (sectionId?: SectionId) => void;
   onShowToast: (msg: string) => void;
 }
 
